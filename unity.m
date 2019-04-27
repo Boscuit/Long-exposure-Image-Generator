@@ -155,7 +155,8 @@ function [opticalflow] = getopticalflow2(im1,im2,threshold)
     [L,N] = superpixels(im1,500);
     Lpad = zeros(size(L));
     Lpad(w+1:size(im1,1)-w-1,w+1:size(im1,2)-w-1) = L(w+1:size(im1,1)-w-1,w+1:size(im1,2)-w-1);
-    IDX = label2idx(Lpad);
+    IDXpad = label2idx(Lpad);%for calculation
+    IDX = label2idx(L);%for assignment
 
     % Lucas Kanade Here
     % for each point, calculate I_x, I_y, I_t
@@ -169,8 +170,9 @@ function [opticalflow] = getopticalflow2(im1,im2,threshold)
 
     % within window ww * ww
     for labelVal = 1:N
+        allidxpad = IDXpad{labelVal};
         allidx = IDX{labelVal};
-        idx = allidx(1); %within the region which pixel is selected? {round(size(allidx,1)/2)}--median
+        idx = allidxpad(1); %within the region which pixel is selected? {round(size(allidx,1)/2)}--median
         j = ceil(idx/size(L,1));
         i = idx - (j-1)*size(L,1);
         Ix = Ix_m(i-w:i+w, j-w:j+w);

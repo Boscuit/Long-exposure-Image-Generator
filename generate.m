@@ -1,28 +1,29 @@
-obj = VideoReader('D://EIE4512//project//gtaTest1//gtaTest1.mp4');
-frselect = [25,5]; %frnumber[framestart,number]
-frlist = zeros(obj.Height/2,obj.Width/2,3,frselect(2));
-frgraylist = zeros(obj.Height/2,obj.Width/2,frselect(2));
+im1 = imread('D:\EIE4512\project\circletest\(1).png');
+N=6;
+frlist=zeros(size(im1,1),size(im1,2),3,N);
+frgraylist=zeros(size(im1,1),size(im1,2),N);
+frout = im2double(im1);
+fgof = zeros(size(im1,1),size(im1,2),2);%accumulated foreground optical flow
+fgoflist = zeros(size(im1,1),size(im1,2),2,N);
+rate=1;
+threshold=0.3;
+
 frlist_b = zeros(size(frlist));
 frgraylist_b = zeros(size(frgraylist));
-fgof = zeros(obj.Height/2,obj.Width/2,2);%accumulated foreground optical flow
-fgoflist = zeros(obj.Height/2,obj.Width/2,2,frselect(2));
-%fgofNlist = zeros(obj.Height/2,obj.Width/2,frselect(2));
-rate = 1;%scale rate
-threshold = 0.3;
 
-for k = 1:frselect(2)
-    frame = read(obj,k+frselect(1));
-    frame = imresize(frame,0.5);
-    frlist(:,:,:,k) = im2double(frame);
-    frgraylist(:,:,k) = rgb2gray(frlist(:,:,:,k));
-    %imwrite(frame,strcat('D:\EIE4512\project\gtaTest1\frames\',num2str(k),'.jpg'),'jpg');
+
+for i = 1:N
+    name = strcat('D:\EIE4512\project\circletest\(',num2str(i),').png');
+    im = imread(name);
+    frlist(:,:,:,i) = im2double(im);
+    frgraylist(:,:,i) = rgb2gray(frlist(:,:,:,i));
 end
 
-frout = frlist(:,:,:,1);
-frlist_b(:,:,:,frselect(2)) = frlist(:,:,:,frselect(2));
-frgraylist_b(:,:,frselect(2)) = frgraylist(:,:,frselect(2));
-    
-for p = 1:frselect(2)-1
+
+frlist_b(:,:,:,N) = frlist(:,:,:,N);
+frgraylist_b(:,:,N) = frgraylist(:,:,N);
+
+for p = 1:N-1
     im1 = frgraylist(:,:,p);
     im2 = frgraylist(:,:,p+1);
     im1 = imresize(im1, rate); % rescale
@@ -32,30 +33,26 @@ for p = 1:frselect(2)-1
     fgof = fgof + fgoflist(:,:,:,p);
 
     % stacking(1-2)
-%      frout = stack1(frout,frlist(:,:,:,p+1),fgoflist(:,:,1,p),fgoflist(:,:,2,p),p);
+%     frout = stack1(frout,frlist(:,:,:,p+1),fgoflist(:,:,1,p),fgoflist(:,:,2,p));
 %     frout = stack2(frout,frlist(:,:,:,p+1),fgoflist(:,:,1,p),fgoflist(:,:,2,p),threshold);
-%     figure();
-%     imshow(frout);
-
-
     U = opticalflow(:,:,1);
     V = opticalflow(:,:,2);
     mean_u = mean(U(:));
     mean_v = mean(V(:));
     sita = atan(mean_v/mean_u)*(180/pi);
     norm = sqrt(mean_u^2+mean_v^2);
-    H = fspecial('motion',norm*500,sita);
+    H = fspecial('motion',norm*10,sita);
     frlist_b(:,:,:,p) = imfilter(frlist(:,:,:,p),H,'replicate');
     frgraylist_b(:,:,p) = imfilter(frgraylist(:,:,p),H,'replicate');
     %stack1
-    frout = stack1(frout,frlist_b(:,:,:,p),fgoflist(:,:,1,p),fgoflist(:,:,2,p),p);
+    frout = stack1(frout,frlist_b(:,:,:,p),fgoflist(:,:,1,p),fgoflist(:,:,2,p));
 %     figure;
 %     imshow(frout);
-
+    
 end
     
 %stack(3-5)
-%  frout = stack4(frout,frgraylist,frlist,fgof);
+% frout = stack6(frout,frgraylist_b,frlist_b,fgof); 
 
 
 
@@ -75,7 +72,7 @@ figure();
 imshow(frlist(:,:,:,1));
 hold on;
 % draw the velocity vectors
-quiver(X_deci, Y_deci, u_deci,v_deci, 'y')
+quiver(X_deci, Y_deci, u_deci,v_deci, 'b')
 
 
 
@@ -140,7 +137,7 @@ function [opticalflow] = getopticalflow2(im1,im2,threshold)
 %     figure
 %     BW = boundarymask(L);
 %     imshow(imoverlay(im1,BW,'cyan'),'InitialMagnification',67)
-
+    
     Lpad = zeros(size(L));
     Lpad(w+1:size(im1,1)-w-1,w+1:size(im1,2)-w-1) = L(w+1:size(im1,1)-w-1,w+1:size(im1,2)-w-1);
     %get all location with each label
@@ -198,9 +195,9 @@ end
 
 
 %---------stack method mean filter(pixel by pixel)---------
-function[frout] = stack1(base,top,of_u,of_v,p)
+function[frout] = stack1(base,top,of_u,of_v)
     frout = base;
-%         figure;
+%     figure;
 %     subplot(211);
 %     imshow(top);
 %     subplot(212);
@@ -208,8 +205,7 @@ function[frout] = stack1(base,top,of_u,of_v,p)
     for i = 1:size(base,1)
         for j = 1:size(base,2)
             if (of_u(i,j)~=0 || of_v(i,j)~=0)
-%                 frout(i,j,:) = (base(i,j,:) + top(i,j,:))/2;%quadratic contribute
-                frout(i,j,:) = (base(i,j,:)*(p-1) + top(i,j,:))/p;%equal contribute
+                frout(i,j,:) = (base(i,j,:) + top(i,j,:))/2;
             end
         end
     end
@@ -250,7 +246,7 @@ function[frout] = stack4(base,frgraylist,frlist,fgof)
         for j = 1:size(fgof,2)
             if (fgof(i,j,1)~=0 || fgof(i,j,2)~=0)
                 label = find(frgraylist(i,j,:)==min(frgraylist(i,j,:)));
-                num = label(1);%the first frame have median graylevel 
+                num = label(1);%the first frame have minimum graylevel 
                 frNum(i,j) = num;%record
                 frout(i,j,:) = frlist(i,j,:,num);%assignment
             end
@@ -258,7 +254,7 @@ function[frout] = stack4(base,frgraylist,frlist,fgof)
     end
 end
 
-%---------stack method min filter(pixel by pixel)---------
+%---------stack method max filter(pixel by pixel)---------
 function[frout] = stack5(base,frgraylist,frlist,fgof)
     frNum = zeros(size(fgof,1),size(fgof,2));%selection record
     frout = base;
@@ -266,7 +262,7 @@ function[frout] = stack5(base,frgraylist,frlist,fgof)
         for j = 1:size(fgof,2)
             if (fgof(i,j,1)~=0 || fgof(i,j,2)~=0)
                 label = find(frgraylist(i,j,:)==max(frgraylist(i,j,:)));
-                num = label(1);%the first frame have median graylevel 
+                num = label(1);%the first frame have maximum graylevel 
                 frNum(i,j) = num;%record
                 frout(i,j,:) = frlist(i,j,:,num);%assignment
             end
@@ -282,8 +278,8 @@ function[frout] = stack6(base,frgraylist,frlist,fgof)
     for i = 1:size(fgof,1)
         for j = 1:size(fgof,2)
             if (fgof(i,j,1)~=0 || fgof(i,j,2)~=0)
-                label = find(frgraylist(i,j,:)==max(frgraylist(i,j,:)));
-                num = label(1);%the first frame have median graylevel 
+                label = find(frgraylist(i,j,:)==min(frgraylist(i,j,:)));
+                num = label(1);%the first frame have minimum graylevel 
                 frNum(i,j) = num;%record
                 frout(i,j,:) = frlist(i,j,:,num);%assignment
             end

@@ -27,7 +27,7 @@ for p = 1:frselect(2)-1
     im2 = frgraylist(:,:,p+1);
     im1 = imresize(im1, rate); % rescale
     im2 = imresize(im2, rate); % rescale
-    opticalflow = getopticalflow2(im1,im2,threshold);
+    [opticalflow,IDX] = getopticalflow2(im1,im2,threshold);
     fgoflist(:,:,:,p) = opticalflow(:,:,1:2);
     fgof = fgof + fgoflist(:,:,:,p);
 
@@ -36,8 +36,8 @@ for p = 1:frselect(2)-1
 %     frout = stack2(frout,frlist(:,:,:,p+1),fgoflist(:,:,1,p),fgoflist(:,:,2,p),threshold);
 %     figure();
 %     imshow(frout);
-    frlist_b(:,:,:,p) = getmotionblur(frlist(:,:,:,p),opticalflow(:,:,1),opticalflow(:,:,2));
-    frgraylist_b(:,:,p) = getmotionblur(frgraylist(:,:,p),opticalflow(:,:,1),opticalflow(:,:,2));
+    frlist_b(:,:,:,p) = getmotionblur(frlist(:,:,:,p),IDX,opticalflow(:,:,1),opticalflow(:,:,2));
+    frgraylist_b(:,:,p) = getmotionblur(frgraylist(:,:,p),IDX,opticalflow(:,:,1),opticalflow(:,:,2));
 
     %stack1
 %     frout = stack1(frout,frlist_b(:,:,:,p),fgoflist(:,:,1,p),fgoflist(:,:,2,p),p);
@@ -123,7 +123,7 @@ end
 
 
 %---------get optical flow with superpixel segementation---------
-function [opticalflow] = getopticalflow2(im1,im2,threshold)
+function [opticalflow,IDX] = getopticalflow2(im1,im2,threshold)
     opticalflow = zeros([size(im1),4]);
     ww = 20;
     w = round(ww/2);
@@ -134,8 +134,9 @@ function [opticalflow] = getopticalflow2(im1,im2,threshold)
 %     imshow(imoverlay(im1,BW,'cyan'),'InitialMagnification',67)
 
     Lpad = zeros(size(L));
-    Lpad(w+1:size(im1,1)-w-1,w+1:size(im1,2)-w-1) = L(w+1:size(im1,1)-w-1,w+1:size(im1,2)-w-1);
-    %get all location with each label
+    Lpad(w+1:size(im1,1)-w-1,w+1:size(im1,2)-w-1) = L(w+1:size(im1,1)-w-1,w+1:size(im1,2)-w-1);%pad in boudary with 0
+    
+    %get those pixels with the same label
     IDXpad = label2idx(Lpad);%for calculation
     IDX = label2idx(L);%for assignment
 
@@ -148,7 +149,7 @@ function [opticalflow] = getopticalflow2(im1,im2,threshold)
     v_fore = zeros(size(im1));
     u_back = zeros(size(im1));
     v_back = zeros(size(im1));
-
+    
     % within window ww * ww
     for labelVal = 1:N
         allidxpad = IDXpad{labelVal};
@@ -180,7 +181,7 @@ function [opticalflow] = getopticalflow2(im1,im2,threshold)
             v_fore(allidx)=0;
             u_back(allidx)=nu(1);
             v_back(allidx)=nu(2);
-        end  
+        end
     end
     opticalflow(:,:,1) = u_fore;
     opticalflow(:,:,2) = v_fore;
@@ -190,13 +191,29 @@ end
 
 
 %--------get motion blur------------
-function[fr_b] = getmotionblur(base,of_u,of_v)
-    mean_u = mean(of_u(:));
-    mean_v = mean(of_v(:));
-    sita = atan(mean_v/mean_u)*(180/pi);
-    norm = sqrt(mean_u^2+mean_v^2);
-    H = fspecial('motion',norm*500,sita);
-    fr_b = imfilter(base,H,'replicate');
+function[fr_b] = getmotionblur(base,IDX,of_u,of_v)
+    numofpixel = size(base,1)*size(base,2);
+    fr_b = base;
+    N = size(IDX,2);
+    for labelVal = 1:N
+        allidx = IDX{labelVal};
+        allidx_RGB = [allidx;allidx+numofpixel;allidx+numofpixel*2];
+        px = allidx(1);
+        if of_u(px)>0 || of_v(px)>0
+            %get motion blur
+            sita = atan(of_v(px)/of_u(px))*(180/pi);
+            norm = sqrt(of_u(px)^2+of_v(px)^2);
+            H = fspecial('motion',norm*10,sita);
+            segment_b = imfilter(base,H,'replicate');
+            if size(base,3) == 1 %gray level image
+                fr_b(allidx) = segment_b(allidx);
+            else
+                fr_b(allidx_RGB) = segment_b(allidx_RGB);
+            end
+        end
+    end
+    figure;
+    imshow(fr_b);
 end
 
 
@@ -219,7 +236,6 @@ function[frout] = stack1(base,top,of_u,of_v,p)
     end
 end
 
-
 %---------stack method mean filter(matix operation)---------
 function[frout] = stack2(base,top,of_u,of_v,threshold)
     fgofNlist = zeros(size(base,1),size(base,2));
@@ -228,7 +244,6 @@ function[frout] = stack2(base,top,of_u,of_v,threshold)
     fgofNlist(:,:) = fgofNlist(:,:)./(fgofNlist(:,:)+1);%normalization (0 or [0.5,1))
     frout = base.*(1-fgofNlist(:,:)) +  top.*fgofNlist(:,:);
 end
-
 
 %---------stack method median filter(pixel by pixel)---------
 function[frout] = stack3(base,frgraylist,frlist,fgof)
@@ -277,7 +292,6 @@ function[frout] = stack5(base,frgraylist,frlist,fgof)
         end
     end
 end
-
 
 %---------generate method(pixel by pixel)---------
 function[frout] = stack6(base,frgraylist,frlist,fgof)

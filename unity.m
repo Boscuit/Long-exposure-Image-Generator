@@ -1,5 +1,5 @@
-obj = VideoReader('D://EIE4512//project//gtaTest1//gtaTest1.mp4');
-frselect = [25,5]; %frnumber[framestart,number]
+obj = VideoReader('D://EIE4512//project//gtaTest1//gtaTest2.mp4');
+frselect = [10,6]; %frnumber[framestart,number]
 frlist = zeros(obj.Height/2,obj.Width/2,3,frselect(2));
 frgraylist = zeros(obj.Height/2,obj.Width/2,frselect(2));
 frlist_b = zeros(size(frlist));
@@ -36,26 +36,18 @@ for p = 1:frselect(2)-1
 %     frout = stack2(frout,frlist(:,:,:,p+1),fgoflist(:,:,1,p),fgoflist(:,:,2,p),threshold);
 %     figure();
 %     imshow(frout);
+    frlist_b(:,:,:,p) = getmotionblur(frlist(:,:,:,p),opticalflow(:,:,1),opticalflow(:,:,2));
+    frgraylist_b(:,:,p) = getmotionblur(frgraylist(:,:,p),opticalflow(:,:,1),opticalflow(:,:,2));
 
-
-    U = opticalflow(:,:,1);
-    V = opticalflow(:,:,2);
-    mean_u = mean(U(:));
-    mean_v = mean(V(:));
-    sita = atan(mean_v/mean_u)*(180/pi);
-    norm = sqrt(mean_u^2+mean_v^2);
-    H = fspecial('motion',norm*500,sita);
-    frlist_b(:,:,:,p) = imfilter(frlist(:,:,:,p),H,'replicate');
-    frgraylist_b(:,:,p) = imfilter(frgraylist(:,:,p),H,'replicate');
     %stack1
-    frout = stack1(frout,frlist_b(:,:,:,p),fgoflist(:,:,1,p),fgoflist(:,:,2,p),p);
+%     frout = stack1(frout,frlist_b(:,:,:,p),fgoflist(:,:,1,p),fgoflist(:,:,2,p),p);
 %     figure;
 %     imshow(frout);
 
 end
     
 %stack(3-5)
-%  frout = stack4(frout,frgraylist,frlist,fgof);
+ frout = stack5(frout,frgraylist_b,frlist_b,fgof);
 
 
 
@@ -195,6 +187,18 @@ function [opticalflow] = getopticalflow2(im1,im2,threshold)
     opticalflow(:,:,3) = u_back;
     opticalflow(:,:,4) = v_back;
 end
+
+
+%--------get motion blur------------
+function[fr_b] = getmotionblur(base,of_u,of_v)
+    mean_u = mean(of_u(:));
+    mean_v = mean(of_v(:));
+    sita = atan(mean_v/mean_u)*(180/pi);
+    norm = sqrt(mean_u^2+mean_v^2);
+    H = fspecial('motion',norm*500,sita);
+    fr_b = imfilter(base,H,'replicate');
+end
+
 
 
 %---------stack method mean filter(pixel by pixel)---------

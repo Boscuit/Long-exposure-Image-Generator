@@ -1,6 +1,7 @@
+clear;
 excomprate = 0.5;
 ofcomprate = 1;%scale rate
-threshold = 2;
+threshold = 1;
 obj = VideoReader('D://EIE4512//project//realTest//test (8).mp4');
 Num = obj.NumberOfFrame;
 frselect = [120,90]; %frnumber[framestart,number]
@@ -30,8 +31,8 @@ for p = 1:frselect(2)-1
     im2 = frgraylist(:,:,p+1);
     im1 = imresize(im1, ofcomprate); % rescale
     im2 = imresize(im2, ofcomprate); % rescale
-    [opticalflow,IDX] = getopticalflow2(im1,im2,threshold,500);
     disp(['runing frame ',num2str(p+frselect(1)-1),'.'])
+    [opticalflow,IDX] = getopticalflow2(im1,im2,threshold,500);
     fgoflist(:,:,:,p) = opticalflow(:,:,1:2);
     fgof = fgof + fgoflist(:,:,:,p);
 
@@ -45,6 +46,22 @@ for p = 1:frselect(2)-1
 
     %stack1
 %     frout = stack1(frout,frlist(:,:,:,p),fgoflist(:,:,1,p),fgoflist(:,:,2,p),p);
+
+    % frout = getmotionblur2(frout,IDX,fgof(:,:,1),fgof(:,:,2));
+
+%     % downsize u and v
+%     u_deci = opticalflow(1:10:end, 1:10:end, 1);
+%     v_deci = opticalflow(1:10:end, 1:10:end, 2);
+%     % get coordinate for u and v in the original frame
+%     [m, n] = size(im1);
+%     [X,Y] = meshgrid(1:n, 1:m);
+%     X_deci = X(1:10/ofcomprate:end, 1:10/ofcomprate:end);
+%     Y_deci = Y(1:10/ofcomprate:end, 1:10/ofcomprate:end);
+%     % Plot optical flow field
+%     imshow(frout);
+%     hold on;
+%     % draw the velocity vectors
+%     quiver(X_deci, Y_deci, u_deci,v_deci, 'y')
 
 end
     
@@ -121,6 +138,7 @@ function [opticalflow] = getopticalflow1(im1,im2,threshold)
     opticalflow(:,:,2) = v_fore;
     opticalflow(:,:,3) = u_back;
     opticalflow(:,:,4) = v_back;
+    
 end
 
 
@@ -151,6 +169,8 @@ function [opticalflow,IDX] = getopticalflow2(im1,im2,threshold,parts)
     Ix_m = conv2(im2, [-1 1; -1 1], 'valid'); % partial on x
     Iy_m = conv2(im2, [-1 -1; 1 1], 'valid'); % partial on y
     It_m = conv2(im1, ones(2), 'valid') + conv2(im2, -ones(2), 'valid'); % partial on t??
+    u = zeros(size(im1));
+    v = zeros(size(im1));
     u_fore = zeros(size(im1));
     v_fore = zeros(size(im1));
     u_back = zeros(size(im1));
@@ -176,18 +196,42 @@ function [opticalflow,IDX] = getopticalflow2(im1,im2,threshold,parts)
 
             A = [Ix Iy]; % get A here
             nu = pinv(A)*b; % get velocity here
+            
+            u(allidx)=nu(1);
+            v(allidx)=nu(2);
 
             %classify fore/back ground
-            if norm(nu,2)>threshold
-                u_fore(allidx)=nu(1);
-                v_fore(allidx)=nu(2);
+%             if norm(nu,2)>threshold
+%                 u_fore(allidx)=nu(1);
+%                 v_fore(allidx)=nu(2);
+%                 u_back(allidx)=0;
+%                 v_back(allidx)=0;
+%             else
+%                 u_fore(allidx)=0;
+%                 v_fore(allidx)=0;
+%                 u_back(allidx)=nu(1);
+%                 v_back(allidx)=nu(2);
+%             end
+        end
+    end
+    uv = (u.^2+v.^2).^0.5;
+    adpth = getOtusthreshold(uv);
+    disp(['adaptive threshold: ',num2str(adpth),'.'])
+    for labelVal = 1:N
+        allidxpad = IDXfinalpad{labelVal};
+        allidx = IDX{labelVal};
+        if size(allidxpad,1)~=0
+            %classify fore/back ground
+            if uv(allidx(1))>max(adpth,threshold)
+                u_fore(allidx)=u(allidx(1));
+                v_fore(allidx)=v(allidx(1));
                 u_back(allidx)=0;
                 v_back(allidx)=0;
             else
                 u_fore(allidx)=0;
                 v_fore(allidx)=0;
-                u_back(allidx)=nu(1);
-                v_back(allidx)=nu(2);
+                u_back(allidx)=u(allidx(1));
+                v_back(allidx)=v(allidx(1));
             end
         end
     end
@@ -195,6 +239,23 @@ function [opticalflow,IDX] = getopticalflow2(im1,im2,threshold,parts)
     opticalflow(:,:,2) = v_fore;
     opticalflow(:,:,3) = u_back;
     opticalflow(:,:,4) = v_back;
+    
+    % downsize u and v
+%     if th<0.6
+%         u_deci = opticalflow(1:10:end, 1:10:end, 1);
+%         v_deci = opticalflow(1:10:end, 1:10:end, 2);
+%         % get coordinate for u and v in the original frame
+%         [m, n] = size(im1);
+%         [X,Y] = meshgrid(1:n, 1:m);
+%         X_deci = X(1:10:end, 1:10:end);
+%         Y_deci = Y(1:10:end, 1:10:end);
+%         % Plot optical flow field
+%         figure();
+%         imshow(im1);
+%         hold on;
+%         % draw the velocity vectors
+%         quiver(X_deci, Y_deci, u_deci,v_deci, 'y')
+%     end
 end
 
 
@@ -378,8 +439,9 @@ function[frout] = stack6(base,frgraylist,frlist,fgof)
     for i = 1:size(fgof,1)
         for j = 1:size(fgof,2)
             if (fgof(i,j,1)~=0 || fgof(i,j,2)~=0)
-                label = find(frgraylist(i,j,:)==max(frgraylist(i,j,:)));
-                num = label(1);%the first frame have median graylevel 
+%                 label = find(frgraylist(i,j,:)==max(frgraylist(i,j,:)));
+%                 num = label(1);%the first frame have median graylevel 
+                [label,num] = max(frgraylist(i,j,:));
                 frNum(i,j) = num;%record
                 frout(i,j,:) = frlist(i,j,:,num);%assignment
             end

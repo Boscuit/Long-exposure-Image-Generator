@@ -443,23 +443,16 @@ function[frout] = stack6(base,top,fgof_u,fgof_v,mean_bgu,mean_bgv)
     basegray = rgb2gray(base);
     topgray = rgb2gray(top);
     frout = base;
-    mean_bgu = round(mean_bgu*20);
-    mean_bgv = round(mean_bgv*20);
-    disp(['mean bg u ',num2str(mean_bgu),'.']);
-    disp(['mean bg v ',num2str(mean_bgv),'.']);
+    mean_bgu = round(mean_bgu);
+    mean_bgv = round(mean_bgv);
     for i = 1:size(base,1)
         for j = 1:size(base,2)
             if (fgof_u(i,j)~=0 || fgof_v(i,j)~=0)
 %                 label = find(frgraylist(i,j,:)==max(frgraylist(i,j,:)));
-%                 num = label(1);%the first frame have median graylevel
-                %correct i-mean_bgu and j-mean_bgv to avoid stepout
-                cori = max(1,i-mean_bgu);
-                cori = min(cori,size(base,1));
-                corj = max(1,j-mean_bgv);
-                corj = min(corj,size(base,2));
-                selection = max(basegray(i,j),topgray(cori,corj));
-                if selection == topgray(cori,corj)
-                    frout(i,j,:) = top(cori,corj,:);%assignment
+%                 num = label(1);%the first frame have median graylevel 
+                selection = max(basegray(i,j),topgray(i-mean_bgu,j-mean_bgv));
+                if selection == topgray(i-mean_bgu,j-mean_bgv)
+                    frout(i,j,:) = top(i-mean_bgu,j-mean_bgv,:);%assignment
                 end
             end
         end

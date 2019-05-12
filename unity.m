@@ -33,7 +33,7 @@ for p = 1:frselect(2)-1
     im1 = imresize(im1, ofcomprate); % rescale
     im2 = imresize(im2, ofcomprate); % rescale
     disp(['runing frame ',num2str(p+frselect(1)-1),'.'])
-    [opticalflow,IDX,mean_bgu,mean_bgv] = getopticalflow2(im1,im2,threshold,500);
+    [opticalflow,IDX] = getopticalflow2(im1,im2,threshold,500);
     fgoflist(:,:,:,p) = opticalflow(:,:,1:2);
     fgof = fgof + fgoflist(:,:,:,p);
 
@@ -46,7 +46,7 @@ for p = 1:frselect(2)-1
 %     frgraylist_b(:,:,p) = getmotionblur2(frgraylist(:,:,p),IDX,opticalflow(:,:,1),opticalflow(:,:,2));
 
     %stack1
-     frout = stack6(frout,frlist(:,:,:,p),fgoflist(:,:,1,p),fgoflist(:,:,2,p),mean_bgu,mean_bgv);
+     frout = stack6(frout,frlist(:,:,:,p),fgoflist(:,:,1,p),fgoflist(:,:,2,p));
 
     % frout = getmotionblur2(frout,IDX,fgof(:,:,1),fgof(:,:,2));
 
@@ -144,7 +144,7 @@ end
 
 
 %---------get optical flow with superpixel segementation---------
-function [opticalflow,IDX,mean_bgu,mean_bgv] = getopticalflow2(im1,im2,threshold,parts)
+function [opticalflow,IDX] = getopticalflow2(im1,im2,threshold,parts)
     opticalflow = zeros([size(im1),4]);
     ww = 10;
     w = round(ww/2);
@@ -234,17 +234,13 @@ function [opticalflow,IDX,mean_bgu,mean_bgv] = getopticalflow2(im1,im2,threshold
                 v_fore(allidx)=0;
                 u_back(allidx)=u(allidx(1));
                 v_back(allidx)=v(allidx(1));
-                count = count+size(allidx,1);
             end
         end
     end
-    pb = count/(size(im1,1)*size(im1,2));%prob of background
     opticalflow(:,:,1) = u_fore;
     opticalflow(:,:,2) = v_fore;
     opticalflow(:,:,3) = u_back;
     opticalflow(:,:,4) = v_back;
-    mean_bgu = mean(u_back(:))/pb;
-    mean_bgv = mean(v_back(:))/pb;
     
     % downsize u and v
 %     if th<0.6
@@ -439,27 +435,18 @@ function[frout] = stack5(base,frgraylist,frlist,fgof)
 end
 
 %---------stack method max filter(frame by frame, pixel by pixel)---------
-function[frout] = stack6(base,top,fgof_u,fgof_v,mean_bgu,mean_bgv)
+function[frout] = stack6(base,top,fgof_u,fgof_v)
     basegray = rgb2gray(base);
     topgray = rgb2gray(top);
     frout = base;
-    mean_bgu = round(mean_bgu*20);
-    mean_bgv = round(mean_bgv*20);
-    disp(['mean bg u ',num2str(mean_bgu),'.']);
-    disp(['mean bg v ',num2str(mean_bgv),'.']);
     for i = 1:size(base,1)
         for j = 1:size(base,2)
             if (fgof_u(i,j)~=0 || fgof_v(i,j)~=0)
 %                 label = find(frgraylist(i,j,:)==max(frgraylist(i,j,:)));
-%                 num = label(1);%the first frame have median graylevel
-                %correct i-mean_bgu and j-mean_bgv to avoid stepout
-                cori = max(1,i-mean_bgu);
-                cori = min(cori,size(base,1));
-                corj = max(1,j-mean_bgv);
-                corj = min(corj,size(base,2));
-                selection = max(basegray(i,j),topgray(cori,corj));
-                if selection == topgray(cori,corj)
-                    frout(i,j,:) = top(cori,corj,:);%assignment
+%                 num = label(1);%the first frame have median graylevel 
+                selection = max(basegray(i,j),topgray(i,j));
+                if selection == topgray(i,j)
+                    frout(i,j,:) = top(i,j,:);%assignment
                 end
             end
         end

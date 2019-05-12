@@ -1,10 +1,12 @@
 clear;
-excomprate = 0.5;
+excomprate = 1;
 ofcomprate = 1;%scale rate
-threshold = 1;
-obj = VideoReader('D://EIE4512//project//realTest//test (7).mp4');
+threshold = 1*excomprate*ofcomprate;
+testNum = 11;
+superpixel = 500;
+obj = VideoReader(strcat('D://EIE4512//project//realTest//test (',num2str(testNum),').mp4'));
 Num = obj.NumberOfFrame;
-frselect = [240,90]; %frnumber[framestart,number]test7[120,90]test8[120,90]
+frselect = [2,100]; %frnumber[framestart,number]test4[60,60]test7[240,90]test8[120,90]
 frlist = zeros(obj.Height*excomprate,obj.Width*excomprate,3,frselect(2));
 frgraylist = zeros(obj.Height*excomprate,obj.Width*excomprate,frselect(2));
 frlist_b = zeros(size(frlist));
@@ -33,7 +35,7 @@ for p = 1:frselect(2)-1
     im1 = imresize(im1, ofcomprate); % rescale
     im2 = imresize(im2, ofcomprate); % rescale
     disp(['runing frame ',num2str(p+frselect(1)-1),'.'])
-    [opticalflow,IDX] = getopticalflow2(im1,im2,threshold,500);
+    [opticalflow,IDX] = getopticalflow2(im1,im2,threshold,superpixel);
     fgoflist(:,:,:,p) = opticalflow(:,:,1:2);
     fgof = fgof + fgoflist(:,:,:,p);
 
@@ -45,12 +47,12 @@ for p = 1:frselect(2)-1
 %     frlist_b(:,:,:,p) = getmotionblur2(frlist(:,:,:,p),IDX,opticalflow(:,:,1),opticalflow(:,:,2));
 %     frgraylist_b(:,:,p) = getmotionblur2(frgraylist(:,:,p),IDX,opticalflow(:,:,1),opticalflow(:,:,2));
 
-    %stack1
+    %stack6
      frout = stack6(frout,frlist(:,:,:,p),fgoflist(:,:,1,p),fgoflist(:,:,2,p));
 
     % frout = getmotionblur2(frout,IDX,fgof(:,:,1),fgof(:,:,2));
 
-%     % downsize u and v
+    % downsize u and v
 %     u_deci = opticalflow(1:10:end, 1:10:end, 1);
 %     v_deci = opticalflow(1:10:end, 1:10:end, 2);
 %     % get coordinate for u and v in the original frame
@@ -59,7 +61,8 @@ for p = 1:frselect(2)-1
 %     X_deci = X(1:10/ofcomprate:end, 1:10/ofcomprate:end);
 %     Y_deci = Y(1:10/ofcomprate:end, 1:10/ofcomprate:end);
 %     % Plot optical flow field
-%     imshow(frout);
+%     figure;
+%     imshow(frlist(:,:,:,p));
 %     hold on;
 %     % draw the velocity vectors
 %     quiver(X_deci, Y_deci, u_deci,v_deci, 'y')
@@ -67,8 +70,9 @@ for p = 1:frselect(2)-1
 end
     
 %stack(3-5)
-%  frout = stack5(frout,frgraylist,frlist,fgof);
-
+% [frout,frout_only] = stack5(frout,frgraylist,frlist,fgof);
+% frout = edgefeather(frout,frout_only,5*excomprate*ofcomprate);
+imwrite(frout,strcat('D:\EIE4512\project\realTest\test',num2str(testNum),'result\',num2str(excomprate),'x',num2str(frselect(1)),'_',num2str(frselect(1)+frselect(2)-1),num2str(superpixel),'sp',num2str(threshold),'thmean','.jpg'),'jpg');
 
 % frout = getmotionblur2(frout,IDX,fgof(:,:,1),fgof(:,:,2));
 figure();
@@ -217,7 +221,7 @@ function [opticalflow,IDX] = getopticalflow2(im1,im2,threshold,parts)
     end
     count = 0;
     uv = (u.^2+v.^2).^0.5;
-    adpth = getOtusthreshold(uv);
+    adpth = getOtusthreshold(uv,IDX);
     disp(['adaptive threshold: ',num2str(adpth),'.'])
     for labelVal = 1:N
         allidxpad = IDXfinalpad{labelVal};
@@ -419,9 +423,10 @@ function[frout] = stack4(base,frgraylist,frlist,fgof)
 end
 
 %---------stack method max filter(pixel by pixel)---------
-function[frout] = stack5(base,frgraylist,frlist,fgof)
+function[frout,frout_only] = stack5(base,frgraylist,frlist,fgof)
     frNum = zeros(size(fgof,1),size(fgof,2));%selection record
     frout = base;
+    frout_only = zeros(size(base));
     for i = 1:size(fgof,1)
         for j = 1:size(fgof,2)
             if (fgof(i,j,1)~=0 || fgof(i,j,2)~=0)
@@ -429,6 +434,7 @@ function[frout] = stack5(base,frgraylist,frlist,fgof)
                 num = label(1);%the first frame have median graylevel 
                 frNum(i,j) = num;%record
                 frout(i,j,:) = frlist(i,j,:,num);%assignment
+                frout_only(i,j,:) = frlist(i,j,:,num);%assignment
             end
         end
     end

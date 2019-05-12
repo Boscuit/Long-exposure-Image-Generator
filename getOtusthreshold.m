@@ -2,13 +2,12 @@
 % th = getOtusthreshold(x);
 % imshow(im2bw(x,th),[]);
 
-function [threshold] = getOtusthreshold(x)   
+function [threshold] = getOtusthreshold(x,IDX)   
 %    a=x;
 %    subplot(211);  
 %    imshow(a,[]);  
-   %[count x]=imhist(a);   
-   [m,n]=size(x);   
-   N=m*n;   
+   %[count x]=imhist(a);
+   [m,n]=size(x);
    L = 100;
    p = double(min(x(:)));
    q = double(max(x(:)));
@@ -17,17 +16,25 @@ function [threshold] = getOtusthreshold(x)
 count = zeros(1,L-1);
 ua = zeros(1,L-1);
 pa = zeros(1,L-1);
-for i = 1:m
-    for j = 1:n
-        for T = 1:L-1
-            if x(i,j)>seg(T) && x(i,j)<seg(T+1)
-                count(T)=count(T)+1;
-            end
+N = size(IDX,2);
+
+for labelVal = 1:N
+    allidx = IDX{labelVal};
+    uv = x(allidx(1));
+    for T = 1:L-1
+        if uv>seg(T) && uv<seg(T+1)
+            count(T)=count(T)+size(allidx,1);
+% for i = 1:m
+%     for j = 1:n
+%         for T = 1:L-1
+%             if x(i,j)>seg(T) && x(i,j)<seg(T+1)
+%                 count(T)=count(T)+1;
+%             end
         end
     end
 end
 
-prob = count/N;
+prob = count/(m*n);
 u = 0;
 
 for T = 1:L-1

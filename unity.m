@@ -1,7 +1,7 @@
 clear;
 excomprate = 1;
 ofcomprate = 1;%scale rate
-threshold = 1*excomprate*ofcomprate;
+threshold = 2*excomprate*ofcomprate;
 testNum = 11;
 superpixel = 500;
 obj = VideoReader(strcat('D://EIE4512//project//realTest//test (',num2str(testNum),').mp4'));
@@ -40,7 +40,7 @@ for p = 1:frselect(2)-1
     fgof = fgof + fgoflist(:,:,:,p);
 
     % stacking(1-2)
-%     frout = stack1(frout,frlist(:,:,:,p+1),fgoflist(:,:,1,p),fgoflist(:,:,2,p),p);
+    frout = stack1(frout,frlist(:,:,:,p+1),fgoflist(:,:,1,p),fgoflist(:,:,2,p),p);
 %     frout = stack2(frout,frlist(:,:,:,p+1),fgoflist(:,:,1,p),fgoflist(:,:,2,p),threshold);
 %     figure();
 %     imshow(frout);
@@ -48,7 +48,7 @@ for p = 1:frselect(2)-1
 %     frgraylist_b(:,:,p) = getmotionblur2(frgraylist(:,:,p),IDX,opticalflow(:,:,1),opticalflow(:,:,2));
 
     %stack6
-     frout = stack6(frout,frlist(:,:,:,p),fgoflist(:,:,1,p),fgoflist(:,:,2,p));
+%      frout = stack6(frout,frlist(:,:,:,p),fgoflist(:,:,1,p),fgoflist(:,:,2,p));
 
     % frout = getmotionblur2(frout,IDX,fgof(:,:,1),fgof(:,:,2));
 
@@ -72,7 +72,7 @@ end
 %stack(3-5)
 % [frout,frout_only] = stack5(frout,frgraylist,frlist,fgof);
 % frout = edgefeather(frout,frout_only,5*excomprate*ofcomprate);
-imwrite(frout,strcat('D:\EIE4512\project\realTest\test',num2str(testNum),'result\',num2str(excomprate),'x',num2str(frselect(1)),'_',num2str(frselect(1)+frselect(2)-1),num2str(superpixel),'sp',num2str(threshold),'thmean','.jpg'),'jpg');
+imwrite(frout,strcat('D:\EIE4512\project\realTest\test',num2str(testNum),'result\',num2str(excomprate),'x',num2str(frselect(1)),'_',num2str(frselect(1)+frselect(2)-1),'_',num2str(superpixel),'sp',num2str(threshold),'thmean','.jpg'),'jpg');
 
 % frout = getmotionblur2(frout,IDX,fgof(:,:,1),fgof(:,:,2));
 figure();
